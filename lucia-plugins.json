@@ -1,0 +1,17 @@
+{
+  "id": "lucia-plugins",
+  "name": "Lucia Plugins",
+  "description": "Third-party plugins for Lucia, maintained outside the core repository.",
+  "plugins": [
+    {
+      "id": "flight-weather",
+      "name": "Flight weather",
+      "description": "Paramotor and ultralight flyability check. Reads live station wind and gusts plus NWS alerts for your home area (keyless: api.weather.gov + Open-Meteo) and answers 'can I fly?' with a FLYABLE, MARGINAL, NO-GO, or NO DATA verdict against your personal wind limits.",
+      "version": "1.0.0",
+      "author": "zxPILEDRIVERxz",
+      "tags": ["flight", "weather", "safety", "paramotor"],
+      "path": "plugins/flight-weather",
+      "homepage": "https://github.com/zxPILEDRIVERxz/lucia-plugins/tree/main/plugins/flight-weather"
+    }
+  ]
+}
