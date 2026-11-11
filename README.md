@@ -96,6 +96,25 @@ no configuration at all. Example: *"What's Bitcoin at?"* →
   high-frequency polling. One call per coin; the agent makes several calls for multi-coin
   questions.
 
+### House briefing (`house-briefing`)
+
+*"Anything weird in the house today?"* — one compact voice report from your Home Assistant
+plus today's weather. No configuration at all: the home location and unit system are read
+from HA itself, and the weather comes from [Open-Meteo](https://open-meteo.com/) (keyless).
+
+- **House signals** (one state snapshot): unreachable entities (`unavailable`/`unknown`),
+  sensors that went quiet (no update in 12+ h), thermostats off target (>2 °F / >1 °C from the
+  setpoint, unit-aware), and media players stuck "playing" for 6+ h. A full report names up to
+  six findings plus the true count; a quiet house gets one sentence.
+- **Weather line:** high/low, precipitation odds (rain vs. snow guessed by the freezing
+  point), and max wind — in °F/mph or °C/km/h per your HA unit system.
+- **Failure policy:** each section degrades on its own — unreachable HA still delivers the
+  weather (and says so); a dead weather call still delivers the house report. Only when both
+  are missing does the tool admit it couldn't put a briefing together. It never guesses.
+
+Example: `2 things look off. Garage door hasn't checked in for 30 hours. Upstairs thermostat
+is 3° above target. Today: high 55°, low 40°, some chance of rain.`
+
 ## Repository layout
 
 ```
@@ -113,4 +132,5 @@ tested is exactly what gets installed:
 dotnet test tests/FlightWeather.Tests
 dotnet test tests/WeatherApi.Tests
 dotnet test tests/PriceCheck.Tests
+dotnet test tests/HouseBriefing.Tests
 ```
