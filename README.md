@@ -65,6 +65,24 @@ for an aeronautical weather briefing (1-800-WX-BRIEF) or your own judgment. Gust
 dangerous failure mode in light aircraft, so observed gusts win over modeled ones, and
 modeled gusts are always labeled as such.
 
+### WeatherAPI.com weather (`weather-api`)
+
+Current conditions and a multi-day forecast (high/low, rain chance, alerts, AQI, pollen,
+next-hours peek) from the [WeatherAPI.com](https://www.weatherapi.com/) forecast API.
+
+**Configuration** (dashboard → Plugins → WeatherAPI.com Weather; restart after changes):
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `ApiKey` | *(empty)* | Your WeatherAPI.com key (free tier at [weatherapi.com/my-account/apikey](https://www.weatherapi.com/my-account/apikey)). Empty = the plugin loads but registers no tool. |
+| `DefaultLocation` | *(empty)* | Override for the default location — city, postal code, or lat,lon. Wins over the automatic home location. |
+| `UseHomeLocation` | `true` | Use Home Assistant home coordinates when no place is named (resolved at startup; also verifies the key). |
+| `DefaultDays` | `3` | Forecast days by default (1-14). |
+| `Units` | `us` | `us` or `metric`. |
+| `IncludeAqi` / `IncludePollen` / `IncludeAlerts` | `true` | Request those extras from the API. |
+| `ShowHourlyPeek` | `6` | How many of the next 3-hour blocks to include (0 = off). |
+| `MaxResponseChars` | `650` | Hard cap on what the tool returns to the agent (120-4000); hourly peek and extras are dropped first. |
+
 ## Repository layout
 
 ```
@@ -74,11 +92,11 @@ plugins/<id>/core.cs          optional logic files, #loaded by plugin.cs
 tests/<Name>.Tests/           unit tests — they compile the same core.cs the plugin loads
 ```
 
-The flight-weather safety logic lives in `plugins/flight-weather/core.cs`
-(class `FlightWeatherCore`, global namespace because C# plugin scripts cannot declare
-namespaces). The test project compiles that exact file, so what is tested
-is exactly what gets installed:
+Each plugin's logic lives in its `core.cs` (global namespace, because C# plugin scripts
+cannot declare namespaces) and the test project compiles that exact file — so what is
+tested is exactly what gets installed:
 
 ```sh
 dotnet test tests/FlightWeather.Tests
+dotnet test tests/WeatherApi.Tests
 ```

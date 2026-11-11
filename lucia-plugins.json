@@ -12,6 +12,16 @@
       "tags": ["flight", "weather", "safety", "paramotor"],
       "path": "plugins/flight-weather",
       "homepage": "https://github.com/zxPILEDRIVERxz/lucia-plugins/tree/main/plugins/flight-weather"
+    },
+    {
+      "id": "weather-api",
+      "name": "WeatherAPI.com Weather",
+      "description": "Current conditions and multi-day forecasts via the WeatherAPI.com forecast API (temperature, rain chance, alerts, AQI, pollen). The default location resolves to your Home Assistant home coordinates, or a place you configure.",
+      "version": "1.0.0",
+      "author": "zxPILEDRIVERxz",
+      "tags": ["weather", "forecast", "api-key"],
+      "path": "plugins/weather-api",
+      "homepage": "https://github.com/zxPILEDRIVERxz/lucia-plugins/tree/main/plugins/weather-api"
     }
   ]
 }
