@@ -83,6 +83,19 @@ next-hours peek) from the [WeatherAPI.com](https://www.weatherapi.com/) forecast
 | `ShowHourlyPeek` | `6` | How many of the next 3-hour blocks to include (0 = off). |
 | `MaxResponseChars` | `650` | Hard cap on what the tool returns to the agent (120-4000); hourly peek and extras are dropped first. |
 
+### Crypto price check (`price-check`)
+
+Live cryptocurrency prices from [CoinGecko](https://www.coingecko.com/en/api) — **keyless**,
+no configuration at all. Example: *"What's Bitcoin at?"* →
+`Bitcoin is at $118,234.56, up 2.4% over the last day.`
+
+- **Coins:** common ones work by name or ticker (`bitcoin`, `BTC`, `xrp`, `doge`, …); anything
+  else is passed through as a raw CoinGecko coin id (e.g. `pepe`), so long-tail coins work too.
+- **Currency:** any ISO code as a parameter (`usd` by default, `eur`, `jpy`, …).
+- **Scope:** the free public API is rate-limited — fine for casual questions, not for
+  high-frequency polling. One call per coin; the agent makes several calls for multi-coin
+  questions.
+
 ## Repository layout
 
 ```
@@ -99,4 +112,5 @@ tested is exactly what gets installed:
 ```sh
 dotnet test tests/FlightWeather.Tests
 dotnet test tests/WeatherApi.Tests
+dotnet test tests/PriceCheck.Tests
 ```

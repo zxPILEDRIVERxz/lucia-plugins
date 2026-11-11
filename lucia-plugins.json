@@ -11,7 +11,7 @@
       "author": "zxPILEDRIVERxz",
       "tags": ["flight", "weather", "safety", "paramotor"],
       "path": "plugins/flight-weather",
-      "homepage": "https://github.com/zxPILEDRIVERxz/lucia-plugins/tree/main/plugins/flight-weather"
+      "homepage": "https://github.com/zxPILEDRIVERxz/lucia-plugins/tree/master/plugins/flight-weather"
     },
     {
       "id": "weather-api",
@@ -21,7 +21,17 @@
       "author": "zxPILEDRIVERxz",
       "tags": ["weather", "forecast", "api-key"],
       "path": "plugins/weather-api",
-      "homepage": "https://github.com/zxPILEDRIVERxz/lucia-plugins/tree/main/plugins/weather-api"
+      "homepage": "https://github.com/zxPILEDRIVERxz/lucia-plugins/tree/master/plugins/weather-api"
+    },
+    {
+      "id": "price-check",
+      "name": "Crypto Price Check",
+      "description": "Live crypto prices via CoinGecko (keyless): 'What's Bitcoin at?' → one compact voice-friendly line with the price and 24h change. Knows common coins by name or ticker ('BTC', 'xrp'), accepts any CoinGecko coin id and any ISO currency code.",
+      "version": "1.0.0",
+      "author": "zxPILEDRIVERxz",
+      "tags": ["crypto", "prices", "bitcoin", "keyless"],
+      "path": "plugins/price-check",
+      "homepage": "https://github.com/zxPILEDRIVERxz/lucia-plugins/tree/master/plugins/price-check"
     }
   ]
 }
