@@ -56,4 +56,57 @@ public sealed class LocationResolutionTests
 
         Assert.Equal("38.9, -77", WeatherQueryResolver.Resolve("   ", null, true, home));
     }
+
+    // ── explicit "home" (the agent passes location="Home" for home questions) ──
+
+    [Fact]
+    public void Resolve_ExplicitHome_UsesHomeCoordinates()
+    {
+        var home = new WeatherHomeLocation(38.9072, -77.0369, "Washington");
+
+        // Without this, "home" is geocoded as a place name — WeatherAPI resolves bare "Home"
+        // to Homei, T'ai-wan.
+        Assert.Equal("38.9072, -77.0369", WeatherQueryResolver.Resolve("Home", "", true, home));
+    }
+
+    [Theory]
+    [InlineData("home")]
+    [InlineData("HOME")]
+    [InlineData("  home  ")]
+    [InlineData("my home")]
+    [InlineData("at home")]
+    [InlineData("the home")]
+    public void Resolve_HomeVariants_AllResolveToHome(string input)
+    {
+        var home = new WeatherHomeLocation(38.9, -77.0, "Washington");
+
+        Assert.Equal("38.9, -77", WeatherQueryResolver.Resolve(input, "", true, home));
+    }
+
+    [Fact]
+    public void Resolve_ExplicitHome_WinsOverDefaultOverride()
+    {
+        // The user said HOME — a configured default for un-named questions must not substitute.
+        var home = new WeatherHomeLocation(38.9, -77.0, "Washington");
+
+        Assert.Equal("38.9, -77", WeatherQueryResolver.Resolve("home", "Tokyo", true, home));
+    }
+
+    [Fact]
+    public void Resolve_ExplicitHome_WithoutUsableHome_AskedInsteadOfGuessed()
+    {
+        var origin = new WeatherHomeLocation(0, 0, "Nowhere");
+
+        Assert.Null(WeatherQueryResolver.Resolve("home", "", true, origin));
+        Assert.Null(WeatherQueryResolver.Resolve("home", "Tokyo", false, null));
+    }
+
+    [Fact]
+    public void Resolve_PlaceNamesThatMerelyContainHome_AreUntouched()
+    {
+        var home = new WeatherHomeLocation(38.9, -77.0, "Washington");
+
+        Assert.Equal("Homer, IL", WeatherQueryResolver.Resolve("Homer, IL", "", true, home));
+        Assert.Equal("Home Depot", WeatherQueryResolver.Resolve("Home Depot", "", true, home));
+    }
 }

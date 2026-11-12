@@ -161,9 +161,9 @@ public sealed class WeatherApiSkill : IWeatherSkill, IPluginStatusProvider
         }
     }
 
-    [Description("Get current weather conditions and a multi-day forecast from WeatherAPI.com. Use for questions like 'what's the weather', 'will it rain tomorrow', or 'forecast this weekend'. Returns compact text starting with the place name, then current conditions, any alerts, daily high/low, and optionally the next few hours. Always state which place the result is for — use the place name from the first line of the result — instead of assuming it is the user's home.")]
+    [Description("Get current weather conditions and a multi-day forecast from WeatherAPI.com. Use for questions like 'what's the weather', 'will it rain tomorrow', or 'forecast this weekend'. For questions about the user's own house ('weather at home', 'how is it out there'), pass location='home' — it resolves to the configured home location, while a bare place name would be geocoded as a city. Returns compact text starting with the place name, then current conditions, any alerts, daily high/low, and optionally the next few hours. Always state which place the result is for — use the place name from the first line of the result — instead of assuming it is the user's home.")]
     public async Task<string> GetWeatherAsync(
-        [Description("Optional location — city name, 'lat,lon' coordinates, or postal code (prefer a city name; bare postal codes can geocode to a different country). When omitted, falls back to the configured default location, then the automatic home location.")] string? location = null,
+        [Description("Optional location — city name, 'lat,lon' coordinates, postal code, or the literal word 'home' to mean the user's own house (prefer a city name for other places; bare postal codes can geocode to a different country). When omitted, falls back to the configured default location, then the automatic home location.")] string? location = null,
         [Description("Optional number of forecast days (1-14). Defaults to the configured value.")] int? days = null,
         CancellationToken cancellationToken = default)
     {

@@ -83,6 +83,8 @@ next-hours peek) from the [WeatherAPI.com](https://www.weatherapi.com/) forecast
 | `ShowHourlyPeek` | `6` | How many of the next 3-hour blocks to include (0 = off). |
 | `MaxResponseChars` | `650` | Hard cap on what the tool returns to the agent (120-4000); hourly peek and extras are dropped first. |
 
+The location parameter also accepts the literal word **`home`** (case-insensitive, e.g. "my home") — that always means the configured Home Assistant home, never a city geocoded from the word.
+
 ### Crypto price check (`price-check`)
 
 Live cryptocurrency prices from [CoinGecko](https://www.coingecko.com/en/api) — **keyless**,

@@ -18,17 +18,35 @@ using System.Text.Json.Serialization;
 public sealed record WeatherHomeLocation(double Latitude, double Longitude, string DisplayName);
 
 /// <summary>
-/// Decides which location a weather lookup targets when the user doesn't name one:
-/// a place named in the question wins, then the configured default override,
+/// Decides which location a weather lookup targets: an explicit "home" request wins
+/// (it means the user's house, not a place name — bare "Home" would geocode to Homei,
+/// T'ai-wan), then a place named in the question, then the configured default override,
 /// then the automatic Home Assistant home coordinates (when enabled and usable).
 /// Coordinates are unambiguous to WeatherAPI's geocoder; bare postal codes are not.
 /// </summary>
 public static class WeatherQueryResolver
 {
+    /// <summary>Values that mean "my house" rather than a place name (case-insensitive, exact after trim).</summary>
+    private static readonly HashSet<string> HomeAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "home", "my home", "at home", "the home",
+    };
+
+    /// <summary>True when the requested location means "the user's home" instead of a named place.</summary>
+    public static bool IsHomeRequest(string? location)
+        => location is not null && HomeAliases.Contains(location.Trim());
+
     public static string? Resolve(string? requestedLocation, string? defaultOverride, bool useHomeLocation, WeatherHomeLocation? home)
     {
-        if (!string.IsNullOrWhiteSpace(requestedLocation))
-            return requestedLocation.Trim();
+        var requested = requestedLocation?.Trim();
+
+        if (IsHomeRequest(requested))
+            // The user said HOME — never substitute a configured default; if the HA home
+            // location is disabled or missing, return null so the caller asks the user.
+            return useHomeLocation && IsUsable(home) ? Coordinates(home!) : null;
+
+        if (!string.IsNullOrWhiteSpace(requested))
+            return requested;
 
         if (!string.IsNullOrWhiteSpace(defaultOverride))
             return defaultOverride.Trim();

@@ -16,8 +16,8 @@
     {
       "id": "weather-api",
       "name": "WeatherAPI.com Weather",
-      "description": "Current conditions and multi-day forecasts via the WeatherAPI.com forecast API (temperature, rain chance, alerts, AQI, pollen). The default location resolves to your Home Assistant home coordinates, or a place you configure.",
-      "version": "1.0.0",
+      "description": "Current conditions and multi-day forecasts via the WeatherAPI.com forecast API (temperature, rain chance, alerts, AQI, pollen). The default location resolves to your Home Assistant home coordinates, or a place you configure — and the literal word 'home' as the location always means your own house.",
+      "version": "1.0.1",
       "author": "zxPILEDRIVERxz",
       "tags": ["weather", "forecast", "api-key"],
       "path": "plugins/weather-api",
