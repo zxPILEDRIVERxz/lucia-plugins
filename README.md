@@ -101,18 +101,24 @@ no configuration at all. Example: *"What's Bitcoin at?"* →
 ### House briefing (`house-briefing`)
 
 *"Anything weird in the house today?"* — one compact voice report from your Home Assistant
-plus today's weather. No configuration at all: the home location and unit system are read
-from HA itself, and the weather comes from [Open-Meteo](https://open-meteo.com/) (keyless).
+plus today's calendar and weather. No configuration at all: the home location, unit system,
+and time zone are read from HA itself, and the weather comes from
+[Open-Meteo](https://open-meteo.com/) (keyless).
 
 - **House signals** (one state snapshot): unreachable entities (`unavailable`/`unknown`),
   sensors that went quiet (no update in 12+ h), thermostats off target (>2 °F / >1 °C from the
   setpoint, unit-aware), and media players stuck "playing" for 6+ h. A full report names up to
   six findings plus the true count; a quiet house gets one sentence.
+- **Calendar line:** today's events across your HA calendars (up to six calendars) in your
+  local time zone — timed events by start ("dentist at 1 PM"), all-day events last
+  ("yoga (all day)"), anything in progress marked. Up to five listed with the true count;
+  an empty day is omitted rather than announced.
 - **Weather line:** high/low, precipitation odds (rain vs. snow guessed by the freezing
   point), and max wind — in °F/mph or °C/km/h per your HA unit system.
 - **Failure policy:** each section degrades on its own — unreachable HA still delivers the
-  weather (and says so); a dead weather call still delivers the house report. Only when both
-  are missing does the tool admit it couldn't put a briefing together. It never guesses.
+  weather (and says so); a dead calendar or weather call is named plainly in the report.
+  Only when everything is missing does the tool admit it couldn't put a briefing together.
+  It never guesses.
 
 Example: `2 things look off. Garage door hasn't checked in for 30 hours. Upstairs thermostat
 is 3° above target. Today: high 55°, low 40°, some chance of rain.`

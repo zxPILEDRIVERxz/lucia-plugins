@@ -36,10 +36,10 @@
     {
       "id": "house-briefing",
       "name": "House Briefing",
-      "description": "'Anything weird in the house today?' — one voice-friendly report from your Home Assistant: unreachable devices, sensors that went quiet, thermostats off target, media players stuck playing, plus today's weather (Open-Meteo, keyless) in your own unit system. No setup: location and units come from Home Assistant.",
-      "version": "1.0.0",
+      "description": "'Anything weird in the house today?' — one voice-friendly report from your Home Assistant: unreachable devices, sensors that went quiet, thermostats off target, media players stuck playing, today's calendar events, plus today's weather (Open-Meteo, keyless) in your own unit system. No setup: location, units, and time zone come from Home Assistant.",
+      "version": "1.1.0",
       "author": "zxPILEDRIVERxz",
-      "tags": ["briefing", "home-assistant", "insights", "morning", "keyless"],
+      "tags": ["briefing", "home-assistant", "insights", "morning", "calendar", "keyless"],
       "path": "plugins/house-briefing",
       "homepage": "https://github.com/zxPILEDRIVERxz/lucia-plugins/tree/master/plugins/house-briefing"
     }

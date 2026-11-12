@@ -44,6 +44,26 @@ public static class HouseBriefingCore
         double? WindSpeedMax,
         string TempUnit);
 
+    /// <summary>
+    /// One calendar event reduced to what the briefing needs. Start/End are absolute UTC;
+    /// TimeLabel is pre-formatted by the glue layer (it owns time zones) — null for all-day events.
+    /// </summary>
+    public sealed record CalEvent(
+        string Summary,
+        DateTime StartUtc,
+        DateTime EndUtc,
+        bool AllDay,
+        string? TimeLabel);
+
+    /// <summary>
+    /// The calendar side of the brief: the true count plus a possibly-capped list line.
+    /// Line is null when Total is 0 (the section is omitted) or Failed is set (named plainly).
+    /// </summary>
+    public sealed record CalendarResult(int Total, string? Line, bool Failed = false)
+    {
+        public static CalendarResult Failure { get; } = new(0, null, true);
+    }
+
     /// <summary>Tunable knobs. Defaults are deliberately conservative — a quiet house is fine.</summary>
     public sealed record HouseAnalysisOptions
     {
@@ -140,6 +160,44 @@ public static class HouseBriefingCore
         return new HouseReport(watched, sorted);
     }
 
+    // ---------------------------------------------------------------- calendar
+
+    private const int MaxCalendarListed = 5;
+
+    /// <summary>
+    /// Selects today's events (overlap with [todayStartUtc, todayEndUtc), half-open) and
+    /// formats the list line: timed events first by start time ("dentist at 1 PM"), all-day
+    /// events last ("yoga (all day)"), in-progress events marked. At most
+    /// <see cref="MaxCalendarListed"/> are listed — the true count is always kept so the
+    /// brief can lead honestly. No events = null line (omitted, not announced).
+    /// </summary>
+    public static CalendarResult BuildCalendarLine(IReadOnlyList<CalEvent> events, DateTime nowUtc, DateTime todayStartUtc, DateTime todayEndUtc)
+    {
+        var todays = events
+            .Where(e => e.StartUtc < todayEndUtc && e.EndUtc > todayStartUtc)
+            .OrderBy(e => e.AllDay)                       // timed (false) before all-day
+            .ThenBy(e => e.AllDay ? DateTime.MinValue : e.StartUtc)
+            .ThenBy(e => e.Summary, StringComparer.Ordinal)
+            .ToList();
+
+        if (todays.Count == 0)
+            return new CalendarResult(0, null);
+
+        var line = string.Join(", ", todays.Take(MaxCalendarListed).Select(e => EventPhrase(e, nowUtc)));
+        return new CalendarResult(todays.Count, line);
+    }
+
+    private static string EventPhrase(CalEvent e, DateTime nowUtc)
+    {
+        var name = string.IsNullOrWhiteSpace(e.Summary) ? "calendar event" : e.Summary.Trim();
+        if (e.AllDay)
+            return $"{name} (all day)";
+
+        var phrase = string.IsNullOrEmpty(e.TimeLabel) ? name : $"{name} at {e.TimeLabel}";
+        var inProgress = e.StartUtc < nowUtc && e.EndUtc > nowUtc;
+        return inProgress ? $"{phrase} (in progress)" : phrase;
+    }
+
     // ---------------------------------------------------------------- weather
 
     /// <summary>
@@ -213,12 +271,17 @@ public static class HouseBriefingCore
     private const int MaxBriefChars = 650;
     private const int MaxSignalsListed = 6;
 
-    /// <summary>
-    /// Assembles the final voice report: house section first, weather last. Missing sections are
-    /// named plainly — never silently skipped. Capped at <see cref="MaxBriefChars"/> chars by
-    /// dropping whole trailing sentences (the count sentence and as many signals as fit always win).
-    /// </summary>
+    /// <summary>Convenience overload: no calendar section.</summary>
     public static string FormatBriefing(HouseReport? report, string? weatherLine)
+        => FormatBriefing(report, new CalendarResult(0, null), weatherLine);
+
+    /// <summary>
+    /// Assembles the final voice report: house signals first, calendar second, weather last.
+    /// A failed calendar is named plainly; an empty one is omitted (a quiet day is fine).
+    /// Missing sections are never silently skipped when they represent a failure. Capped at
+    /// <see cref="MaxBriefChars"/> chars by dropping whole trailing sentences.
+    /// </summary>
+    public static string FormatBriefing(HouseReport? report, CalendarResult? calendar, string? weatherLine)
     {
         var weatherSentence = string.IsNullOrWhiteSpace(weatherLine) ? null : $"Today: {weatherLine}.";
 
@@ -246,6 +309,13 @@ public static class HouseBriefingCore
             foreach (var signal in report.Signals.Take(MaxSignalsListed))
                 sentences.Add(Capitalize(signal.Message));
         }
+
+        if (calendar is { Failed: true })
+            sentences.Add("The calendar section is missing — the calendar service was unreachable.");
+        else if (calendar is { Total: > 0, Line: not null })
+            sentences.Add(calendar.Total <= MaxCalendarListed
+                ? $"On the calendar: {calendar.Line}."
+                : $"{calendar.Total} things on the calendar today — starting with {calendar.Line}.");
 
         if (weatherSentence is not null)
             sentences.Add(weatherSentence);

@@ -6,9 +6,10 @@ using System.Diagnostics.Metrics;
 using System.Globalization;
 
 /// <summary>
-/// House briefing: "anything weird in the house today?" plus today's weather. One tool, no
-/// parameters (voice-tuned). House signals come from one Home Assistant state snapshot
-/// (unreachable entities, silent sensors, off-target thermostats, stuck media players); the
+/// House briefing: "anything weird in the house today?" plus today's calendar and weather.
+/// One tool, no parameters (voice-tuned). House signals come from one Home Assistant state
+/// snapshot (unreachable entities, silent sensors, off-target thermostats, stuck media
+/// players); the calendar line comes from the HA calendars for the user's local day; the
 /// weather line comes from Open-Meteo (keyless) for the HA home location, in the HA unit system.
 /// All analysis/formatting lives in HouseBriefingCore (plugins/house-briefing/core.cs), which
 /// the test project compiles verbatim, so the contract is covered by unit tests. No configuration:
@@ -23,20 +24,21 @@ public sealed class HouseBriefingSkill : IAgentToolProvider, IPluginStatusProvid
     private string? _locationName;
     private double? _latitude;
     private double? _longitude;
+    private string? _timeZone;
     private string _temperatureUnit = "F";
     private string _statusLine = "House briefing is starting up.";
 
-    private static readonly ActivitySource ActivitySource = new("Lucia.Skills.HouseBriefing", "1.0.0");
-    private static readonly Meter Meter = new("Lucia.Skills.HouseBriefing", "1.0.0");
+    private static readonly ActivitySource ActivitySource = new("Lucia.Skills.HouseBriefing", "1.1.0");
+    private static readonly Meter Meter = new("Lucia.Skills.HouseBriefing", "1.1.0");
     private static readonly Counter<long> Briefings = Meter.CreateCounter<long>("housebriefing.briefings", "{count}", "Number of house briefings generated.");
     private static readonly Counter<long> Failures = Meter.CreateCounter<long>("housebriefing.failures", "{count}", "Number of fully failed house briefings (both sections missing).");
     private static readonly Histogram<double> DurationMs = Meter.CreateHistogram<double>("housebriefing.duration", "ms", "Duration of house briefings.");
 
     public string Name => "House briefing";
 
-    public string Description => "Daily house health signals plus today's weather — 'anything weird in the house?' in one voice-friendly report";
+    public string Description => "Daily house health signals, today's calendar, and today's weather — 'anything weird in the house?' in one voice-friendly report";
 
-    public string? InstructionHint => "when asked for a briefing, what's going on in the house, or whether anything is weird today, call the get_briefing tool and answer with its report; never guess at the state of the house or the weather";
+    public string? InstructionHint => "when asked for a briefing, what's going on in the house, what's on the calendar or schedule today, or whether anything is weird today, call the get_briefing tool and answer with its report; never guess at the state of the house, the calendar, or the weather";
 
     public string? StatusLine => _statusLine;
 
@@ -53,7 +55,7 @@ public sealed class HouseBriefingSkill : IAgentToolProvider, IPluginStatusProvid
     {
         if (_homeAssistant is null)
         {
-            _statusLine = "No Home Assistant client available — the house section is unavailable.";
+            _statusLine = "No Home Assistant client available — the house and calendar sections are unavailable.";
             _logger.LogWarning("House briefing started without a Home Assistant client; only the weather section may work.");
             return;
         }
@@ -70,19 +72,20 @@ public sealed class HouseBriefingSkill : IAgentToolProvider, IPluginStatusProvid
                 _latitude = config.Latitude;
                 _longitude = config.Longitude;
             }
+            _timeZone = config.TimeZone;
             _temperatureUnit = config.UnitSystem?.Temperature == "C" ? "C" : "F";
 
             _statusLine = $"Watching the house from Home Assistant (home: {config.LocationName}).";
-            _logger.LogInformation("House briefing skill initialized (home: {Home}, unit system: {Unit}).", config.LocationName, _temperatureUnit);
+            _logger.LogInformation("House briefing skill initialized (home: {Home}, unit system: {Unit}, time zone: {Zone}).", config.LocationName, _temperatureUnit, config.TimeZone);
         }
         catch (Exception ex)
         {
-            _statusLine = "Home Assistant was unreachable at startup — the house section retries on each briefing.";
+            _statusLine = "Home Assistant was unreachable at startup — the house and calendar sections retry on each briefing.";
             _logger.LogWarning(ex, "House briefing could not read the Home Assistant config at startup.");
         }
     }
 
-    [Description("Produce today's house briefing: house health signals (unreachable devices, sensors that went quiet, thermostats off target, media players stuck) plus today's weather. Takes no parameters — just call it. The report names anything that is missing instead of skipping it; relay what it says plainly.")]
+    [Description("Produce today's house briefing: house health signals (unreachable devices, sensors that went quiet, thermostats off target, media players stuck), today's calendar events, and today's weather. Takes no parameters — just call it. The report names anything that is missing instead of skipping it; relay what it says plainly.")]
     public async Task<string> GetBriefingAsync(CancellationToken cancellationToken = default)
     {
         Briefings.Add(1);
@@ -110,6 +113,7 @@ public sealed class HouseBriefingSkill : IAgentToolProvider, IPluginStatusProvid
         }
 
         var weatherLine = await FetchWeatherLineAsync(cancellationToken).ConfigureAwait(false);
+        var calendar = await FetchCalendarSectionAsync(cancellationToken).ConfigureAwait(false);
 
         if (house is null && weatherLine is null)
         {
@@ -120,12 +124,16 @@ public sealed class HouseBriefingSkill : IAgentToolProvider, IPluginStatusProvid
         {
             activity?.SetStatus(ActivityStatusCode.Ok);
         }
+        activity?.SetTag("housebriefing.calendar", calendar.Failed ? "unreachable" : $"{calendar.Total} events");
 
         var ms = RecordDuration(start);
-        _logger.LogInformation("House briefing in {Ms}ms: house {House}, weather {Weather}.",
-            ms, house is null ? "missing" : $"{house.Signals.Count} signals / {house.WatchedCount} watched", weatherLine is null ? "missing" : "ok");
+        _logger.LogInformation("House briefing in {Ms}ms: house {House}, calendar {Calendar}, weather {Weather}.",
+            ms,
+            house is null ? "missing" : $"{house.Signals.Count} signals / {house.WatchedCount} watched",
+            calendar.Failed ? "unreachable" : $"{calendar.Total} events",
+            weatherLine is null ? "missing" : "ok");
 
-        return HouseBriefingCore.FormatBriefing(house, weatherLine);
+        return HouseBriefingCore.FormatBriefing(house, calendar, weatherLine);
     }
 
     /// <summary>Today's Open-Meteo forecast for the HA home location, or null (logged) on any failure.</summary>
@@ -157,6 +165,122 @@ public sealed class HouseBriefingSkill : IAgentToolProvider, IPluginStatusProvid
             _logger.LogWarning(ex, "House briefing weather fetch failed: {Url}.", url);
             return null;
         }
+    }
+
+    private const int MaxCalendars = 6;
+
+    /// <summary>
+    /// Today's calendar section from HA: enumerates calendars (bounded), fetches events for the
+    /// user's local day, dedupes across calendars. Returns Failure on any HA error — the brief
+    /// names the missing section instead of skipping it; no events = an omitted section.
+    /// </summary>
+    private async Task<HouseBriefingCore.CalendarResult> FetchCalendarSectionAsync(CancellationToken cancellationToken)
+    {
+        if (_homeAssistant is null)
+            return new HouseBriefingCore.CalendarResult(0, null);
+
+        try
+        {
+            var nowUtc = DateTime.UtcNow;
+            var tz = TryGetTimeZone();
+            var (dayStart, dayEnd) = LocalDayBounds(nowUtc, tz);
+
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(15));
+
+            var calendars = (await _homeAssistant.GetCalendarsAsync(cts.Token).ConfigureAwait(false))
+                .Take(MaxCalendars)
+                .ToList();
+
+            var events = new List<HouseBriefingCore.CalEvent>();
+            foreach (var calendar in calendars)
+            {
+                var fetched = await _homeAssistant.GetCalendarEventsAsync(
+                    calendar.EntityId, dayStart.ToString("o"), dayEnd.ToString("o"), cts.Token).ConfigureAwait(false);
+                foreach (var ev in fetched)
+                {
+                    var mapped = MapCalendarEvent(ev, tz);
+                    if (mapped is not null)
+                        events.Add(mapped);
+                }
+            }
+
+            // The same event can appear in several calendars.
+            var unique = events.GroupBy(e => (e.Summary, e.StartUtc)).Select(g => g.First()).ToList();
+
+            return HouseBriefingCore.BuildCalendarLine(unique, nowUtc, dayStart, dayEnd);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "House briefing could not read the Home Assistant calendar.");
+            return HouseBriefingCore.CalendarResult.Failure;
+        }
+    }
+
+    private TimeZoneInfo? TryGetTimeZone()
+    {
+        if (string.IsNullOrWhiteSpace(_timeZone))
+            return null;
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(_timeZone);
+        }
+        catch (Exception)
+        {
+            _logger.LogWarning("House briefing could not resolve time zone {Zone}; using UTC for the calendar day.", _timeZone);
+            return null;
+        }
+    }
+
+    /// <summary>The user's local day [midnight, next midnight), as absolute UTC instants.</summary>
+    private static (DateTime StartUtc, DateTime EndUtc) LocalDayBounds(DateTime nowUtc, TimeZoneInfo? tz)
+    {
+        if (tz is null)
+        {
+            var utcDay = nowUtc.Date;
+            return (utcDay, utcDay.AddDays(1));
+        }
+
+        var wallClock = nowUtc + tz.GetUtcOffset(nowUtc);
+        var startLocal = new DateTime(wallClock.Year, wallClock.Month, wallClock.Day);
+        var endLocal = startLocal.AddDays(1);
+        return (
+            TimeZoneInfo.ConvertTime(DateTime.SpecifyKind(startLocal, DateTimeKind.Unspecified), tz, TimeZoneInfo.Utc),
+            TimeZoneInfo.ConvertTime(DateTime.SpecifyKind(endLocal, DateTimeKind.Unspecified), tz, TimeZoneInfo.Utc));
+    }
+
+    /// <summary>Maps an HA calendar event to the briefing record; null when it has no usable start.</summary>
+    private static HouseBriefingCore.CalEvent? MapCalendarEvent(CalendarEvent ev, TimeZoneInfo? tz)
+    {
+        var summary = ev.Summary ?? "";
+
+        // All-day: a plain "date" in the home zone (iCal all-day ends are exclusive — duration doesn't matter).
+        if (ev.Start.Date is { } date && DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
+        {
+            var startLocal = new DateTime(day.Year, day.Month, day.Day);
+            var startUtc = tz is null
+                ? DateTime.SpecifyKind(startLocal, DateTimeKind.Utc)
+                : TimeZoneInfo.ConvertTime(DateTime.SpecifyKind(startLocal, DateTimeKind.Unspecified), tz, TimeZoneInfo.Utc);
+            return new HouseBriefingCore.CalEvent(summary, startUtc, startUtc.AddDays(1), true, null);
+        }
+
+        if (ev.Start.DateTime is { } dt && DateTimeOffset.TryParse(dt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var startDto))
+        {
+            var startUtc = startDto.UtcDateTime;
+            var endUtc = ev.End.DateTime is { } end && DateTimeOffset.TryParse(end, CultureInfo.InvariantCulture, DateTimeStyles.None, out var endDto)
+                ? endDto.UtcDateTime
+                : startUtc.AddHours(1);
+            return new HouseBriefingCore.CalEvent(summary, startUtc, endUtc, false, TimeLabel(startUtc, tz));
+        }
+
+        return null;
+    }
+
+    /// <summary>Wall-clock time label in the home zone ("1:30 PM"); UTC when the zone is unknown.</summary>
+    private static string TimeLabel(DateTime utcInstant, TimeZoneInfo? tz)
+    {
+        var wallClock = tz is null ? utcInstant : utcInstant + tz.GetUtcOffset(utcInstant);
+        return wallClock.ToString("h:mm tt", CultureInfo.InvariantCulture);
     }
 
     /// <summary>Reduces an HA state to what the analysis needs; null for unmonitored domains.</summary>
@@ -239,7 +363,7 @@ public sealed class HouseBriefingPlugin : ILuciaPlugin, IPluginStatusProvider
     {
         _services = services;
         var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("HouseBriefingPlugin");
-        logger.LogInformation("House briefing plugin active — get_briefing tool registered (Home Assistant + Open-Meteo).");
+        logger.LogInformation("House briefing plugin active — get_briefing tool registered (Home Assistant house + calendar, Open-Meteo weather).");
         return Task.CompletedTask;
     }
 }
