@@ -35,8 +35,12 @@ public sealed class WeatherApiOptions
     public int TimeoutSeconds { get; init; } = 12;
 }
 
-public sealed class WeatherApiSkill : IWeatherSkill, IPluginStatusProvider
+public sealed class WeatherApiSkill : IAgentToolProvider, IPluginStatusProvider
 {
+    public string Name => "Weather";
+    public string Description => "Current weather conditions and multi-day forecasts";
+    public string? InstructionHint => "For current weather conditions or forecasts, use the get_weather tool instead of guessing; base your answer on its data.";
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly WeatherApiOptions _options;
     private readonly ILogger _logger;
@@ -409,7 +413,7 @@ public sealed class WeatherApiPlugin : ILuciaPlugin, IPluginStatusProvider
     ];
 
     /// <summary>Live status for the dashboard: where default weather lookups target, and any startup issues.</summary>
-    public string? StatusLine => (_services?.GetService<IWeatherSkill>() as WeatherApiSkill)?.StatusLine
+    public string? StatusLine => _services?.GetServices<IAgentToolProvider>().OfType<WeatherApiSkill>().FirstOrDefault()?.StatusLine
         ?? "No API key configured — the weather tool is inactive.";
 
     public void ConfigureServices(IHostApplicationBuilder builder)
@@ -440,7 +444,7 @@ public sealed class WeatherApiPlugin : ILuciaPlugin, IPluginStatusProvider
             client.DefaultRequestHeaders.Add("Accept", "application/json");
         });
 
-        builder.Services.AddSingleton<IWeatherSkill>(sp =>
+        builder.Services.AddSingleton<IAgentToolProvider>(sp =>
             new WeatherApiSkill(
                 sp.GetRequiredService<IHttpClientFactory>(),
                 options,
@@ -452,7 +456,7 @@ public sealed class WeatherApiPlugin : ILuciaPlugin, IPluginStatusProvider
     {
         _services = services;
         var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("WeatherApiPlugin");
-        if (services.GetService<IWeatherSkill>() is WeatherApiSkill)
+        if (services.GetServices<IAgentToolProvider>().OfType<WeatherApiSkill>().Any())
             logger.LogInformation("WeatherAPI plugin active — weather tool registered.");
         else
             logger.LogInformation("WeatherAPI plugin loaded but no API key configured — no weather tool registered.");
